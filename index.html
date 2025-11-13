@@ -662,7 +662,46 @@
         loadExpenses();
         loadCategories();
 
-        // GitHub Gist Functions
+        // --- FUNGSI GIST BARU/MODIFIKASI DIMULAI DI SINI ---
+        
+        // NEW: Fungsi untuk mencari Gist ID yang sudah ada di akun GitHub
+        async function findExistingGist() {
+            try {
+                const response = await fetch('https://api.github.com/gists', {
+                    headers: {
+                        'Authorization': `token ${GITHUB_TOKEN}`
+                    }
+                });
+
+                if (!response.ok) {
+                    // Coba baca error body untuk detail lebih lanjut
+                    const errorBody = await response.json();
+                    throw new Error('Failed to fetch gists list. Status: ' + response.status + (errorBody.message ? ' - ' + errorBody.message : ''));
+                }
+                
+                const gists = await response.json();
+                
+                // Cari Gist dengan deskripsi dan file yang cocok
+                const existingGist = gists.find(g => 
+                    g.description === 'Expense Tracker Data' && 
+                    g.files && 
+                    g.files['expense-data.json']
+                );
+                
+                if (existingGist) {
+                    console.log('Found existing Gist ID:', existingGist.id);
+                    return existingGist.id;
+                }
+                
+                return null; // Tidak ditemukan
+                
+            } catch (error) {
+                console.error('Error finding existing Gist:', error);
+                return null;
+            }
+        }
+        // END NEW
+
         async function saveGitHubToken() {
             const token = document.getElementById('githubToken').value.trim();
             if (!token) {
@@ -673,9 +712,17 @@
             GITHUB_TOKEN = token;
             localStorage.setItem('github_token', token);
             
+            // Set GIST_ID menjadi null agar syncToGist memaksa pencarian Gist ID yang ada
+            GIST_ID = '';
+            localStorage.removeItem('gist_id');
+
             await syncToGist();
+            
+            // Setelah sync, jika GIST_ID ditemukan atau dibuat, loadFromGist akan dipanggil di dalam syncToGist
+            // Jika GIST_ID sudah ada dari awal (di perangkat lama), ia akan langsung memuat data terbaru dari Gist.
         }
 
+        // MODIFIED: Fungsi syncToGist diperbarui untuk mencoba mencari Gist ID yang sudah ada
         async function syncToGist() {
             if (!GITHUB_TOKEN) {
                 alert('Please configure GitHub token first');
@@ -690,6 +737,18 @@
 
             try {
                 updateSyncStatus('Syncing...', '#667eea');
+                
+                // MODIFIKASI UTAMA: Jika GIST_ID kosong, cari dulu ID yang sudah ada.
+                if (!GIST_ID) {
+                    const foundId = await findExistingGist();
+                    if (foundId) {
+                        GIST_ID = foundId;
+                        localStorage.setItem('gist_id', GIST_ID);
+                        updateSyncStatus('✓ Gist ID ditemukan. Mencoba memuat data lama.', '#ffc107');
+                        // Setelah Gist ID ditemukan, kita harus load datanya dari Gist yang baru ditemukan
+                        await loadFromGist(true); // Memaksa load data dari Gist yang baru ditemukan
+                    }
+                }
 
                 if (GIST_ID) {
                     // Update existing gist
@@ -708,10 +767,13 @@
                         })
                     });
 
-                    if (!response.ok) throw new Error('Failed to update gist');
+                    if (!response.ok) {
+                         const errorBody = await response.json();
+                         throw new Error('Failed to update gist. Status: ' + response.status + (errorBody.message ? ' - ' + errorBody.message : ''));
+                    }
                     updateSyncStatus('✓ Synced successfully', '#43e97b');
                 } else {
-                    // Create new gist
+                    // Create new gist (hanya jika tidak ditemukan ID Gist yang sudah ada)
                     const response = await fetch('https://api.github.com/gists', {
                         method: 'POST',
                         headers: {
@@ -729,7 +791,10 @@
                         })
                     });
 
-                    if (!response.ok) throw new Error('Failed to create gist');
+                    if (!response.ok) {
+                         const errorBody = await response.json();
+                         throw new Error('Failed to create gist. Status: ' + response.status + (errorBody.message ? ' - ' + errorBody.message : ''));
+                    }
                     
                     const gist = await response.json();
                     GIST_ID = gist.id;
@@ -745,21 +810,39 @@
             }
         }
 
-        async function loadFromGist() {
+        // MODIFIED: Fungsi loadFromGist diperbarui untuk mendukung pemuatan data paksa
+        async function loadFromGist(forceLoad = false) {
             if (!GITHUB_TOKEN || !GIST_ID) {
+                return;
+            }
+            
+            // Tambahkan pengecekan ini: jika data lokal sudah ada, tidak perlu memuat dari Gist kecuali dipaksa (forceLoad=true)
+            if (!forceLoad && expenses.length > 0 && customCategories.length > 0) {
+                // Asumsi data sudah dimuat dan tidak perlu memuat ulang
                 return;
             }
 
             try {
+                updateSyncStatus('Loading from GitHub...', '#667eea');
+
                 const response = await fetch(`https://api.github.com/gists/${GIST_ID}`, {
                     headers: {
                         'Authorization': `token ${GITHUB_TOKEN}`
                     }
                 });
 
-                if (!response.ok) throw new Error('Failed to load from gist');
+                if (!response.ok) {
+                    const errorBody = await response.json();
+                    throw new Error('Failed to load from gist. Status: ' + response.status + (errorBody.message ? ' - ' + errorBody.message : ''));
+                }
 
                 const gist = await response.json();
+                
+                // Pastikan file data ada sebelum parsing
+                if (!gist.files || !gist.files['expense-data.json']) {
+                    throw new Error('Gist file not found or empty.');
+                }
+                
                 const content = gist.files['expense-data.json'].content;
                 const data = JSON.parse(content);
 
@@ -772,12 +855,19 @@
 
                 updateCategoryDropdown();
                 renderExpenses();
-                updateSyncStatus('✓ Loaded from GitHub', '#43e97b');
+                
+                if (forceLoad) {
+                     updateSyncStatus('✓ Data dimuat dari GitHub (ID ditemukan).', '#43e97b');
+                } else {
+                     updateSyncStatus('✓ Loaded from GitHub', '#43e97b');
+                }
             } catch (error) {
                 console.error('Load error:', error);
-                updateSyncStatus('Could not load from GitHub', '#ff4757');
+                updateSyncStatus('Could not load from GitHub: ' + error.message, '#ff4757');
             }
         }
+        
+        // END FUNGSI GIST BARU/MODIFIKASI
 
         function updateSyncStatus(message, color) {
             const statusDiv = document.getElementById('syncStatus');
@@ -797,6 +887,8 @@
         }
 
         async function manualSync() {
+            // Hapus GIST_ID sementara jika ada bug, agar ia mencari ulang
+            // if (!GIST_ID) { localStorage.removeItem('gist_id'); } // Dihapus karena sudah ditangani di saveGitHubToken
             await syncToGist();
         }
 
@@ -816,24 +908,29 @@
 
         function fixExpensesFormat() {
             console.log('Fixing expenses format...');
-            console.log('Before fix:', JSON.stringify(expenses, null, 2));
             
             let fixedCount = 0;
             expenses = expenses.map(expense => {
-                if (expense.category && expense.category.includes(':')) {
-                    const parts = expense.category.split(':');
+                // Periksa apakah kategori mengandung subCategory
+                let currentCategory = expense.category || '';
+                let currentSubCategory = expense.subCategory || '';
+
+                if (currentCategory.includes(':')) {
+                    const parts = currentCategory.split(':');
                     fixedCount++;
-                    console.log(`Fixing: "${expense.category}" -> category="${parts[0]}" subCategory="${parts.slice(1).join(':')}"`)
+                    
+                    // Asumsi bagian pertama adalah Category, sisanya adalah SubCategory
                     return {
                         ...expense,
                         category: parts[0],
                         subCategory: parts.slice(1).join(':')
                     };
                 }
+                
+                // Jika sudah dalam format yang benar (category dan subCategory terpisah), tidak diubah
                 return expense;
             });
             
-            console.log('After fix:', JSON.stringify(expenses, null, 2));
             console.log(`Fixed ${fixedCount} expenses`);
             
             return fixedCount;
@@ -876,47 +973,32 @@
         }
 
         function renderAnalytics() {
-            console.log('Rendering analytics...');
-            console.log('Total expenses:', expenses.length);
-            console.log('All expenses:', expenses);
-
-            // Calculate spending by category and subcategory
+            // ... (Fungsi ini tidak diubah)
+            
             const categoryData = {};
             let totalSpending = 0;
 
             expenses.forEach(expense => {
-                console.log('Processing expense:', expense);
+                // Pastikan category ada sebelum memproses
+                const cat = expense.category || 'Uncategorized';
                 
-                // Initialize category if not exists
-                if (!categoryData[expense.category]) {
-                    categoryData[expense.category] = {
+                if (!categoryData[cat]) {
+                    categoryData[cat] = {
                         total: 0,
                         subCategories: {}
                     };
                 }
                 
-                // Add to category total
-                categoryData[expense.category].total += expense.amount;
+                categoryData[cat].total += expense.amount;
                 totalSpending += expense.amount;
 
-                // Add to subcategory if exists
                 if (expense.subCategory) {
-                    console.log('Has subcategory:', expense.subCategory);
-                    if (!categoryData[expense.category].subCategories[expense.subCategory]) {
-                        categoryData[expense.category].subCategories[expense.subCategory] = 0;
+                    const subCat = expense.subCategory;
+                    if (!categoryData[cat].subCategories[subCat]) {
+                        categoryData[cat].subCategories[subCat] = 0;
                     }
-                    categoryData[expense.category].subCategories[expense.subCategory] += expense.amount;
-                } else {
-                    console.log('No subcategory');
+                    categoryData[cat].subCategories[subCat] += expense.amount;
                 }
-            });
-
-            console.log('Category data:', categoryData);
-            console.log('Total spending:', totalSpending);
-
-            // Debug: Check each category's subcategories
-            Object.entries(categoryData).forEach(([cat, data]) => {
-                console.log(`Category ${cat}: total=${data.total}, subCats=`, data.subCategories);
             });
 
             // Check if there are any expenses
@@ -997,8 +1079,6 @@
                 }
             });
 
-            console.log('Chart created');
-
             // Render breakdown list with expandable subcategories
             const breakdownDiv = document.getElementById('categoryBreakdown');
             breakdownDiv.innerHTML = '';
@@ -1007,8 +1087,6 @@
                 const percentage = ((data.total / totalSpending) * 100).toFixed(1);
                 const hasSubCategories = Object.keys(data.subCategories).length > 0;
                 const categoryId = `cat-${index}`;
-
-                console.log(`Rendering category: ${category}, hasSubCategories: ${hasSubCategories}, subCats:`, data.subCategories);
 
                 // Create main item
                 const itemDiv = document.createElement('div');
@@ -1116,13 +1194,8 @@
             const subList = document.getElementById('sub-' + categoryId);
             const icon = document.getElementById('icon-' + categoryId);
             
-            console.log('Toggle called for:', categoryId);
-            console.log('SubList:', subList);
-            console.log('Icon:', icon);
-            
             if (subList) {
                 const isExpanded = subList.classList.contains('expanded');
-                console.log('Is expanded:', isExpanded);
                 
                 if (isExpanded) {
                     subList.classList.remove('expanded');
@@ -1352,30 +1425,18 @@
 
         function loadExpenses() {
             // Skip browser storage, only load from Gist
-            console.log('Expenses will be loaded from GitHub Gist');
         }
 
         function loadCategories() {
             // Skip browser storage, only load from Gist
-            console.log('Categories will be loaded from GitHub Gist');
         }
 
         function saveExpenses() {
-            // Don't use window.storage anymore since we're using GitHub Gist
-            // This was causing conflicts
-            console.log('Saving expenses to memory only (Gist will sync)');
+            // Saving expenses to memory only (Gist will sync)
         }
 
         function saveCategories() {
-            if (window.storage) {
-                const categoryData = {
-                    categories: customCategories,
-                    subCategories: subCategories
-                };
-                window.storage.set('category-data', JSON.stringify(categoryData)).catch(err => {
-                    console.error('Save categories error:', err);
-                });
-            }
+            // Saving categories to memory only (Gist will sync)
         }
 
         function updateCategoryDropdown() {
@@ -1387,26 +1448,11 @@
             // Clear and rebuild
             select.innerHTML = '';
             
-            // Add default categories with their sub-categories
-            defaultCategories.forEach(cat => {
-                const option = document.createElement('option');
-                option.value = cat;
-                option.textContent = cat;
-                select.appendChild(option);
+            // Combine default and custom categories
+            const allCategories = [...defaultCategories, ...customCategories];
 
-                // Add sub-categories with indentation
-                const subs = subCategories[cat] || [];
-                subs.forEach(sub => {
-                    const subOption = document.createElement('option');
-                    subOption.value = `${cat}:${sub}`;
-                    subOption.textContent = `  ↳ ${sub}`;
-                    subOption.style.paddingLeft = '20px';
-                    select.appendChild(subOption);
-                });
-            });
-            
-            // Add custom categories with their sub-categories
-            customCategories.forEach(cat => {
+            allCategories.forEach(cat => {
+                // Add main category
                 const option = document.createElement('option');
                 option.value = cat;
                 option.textContent = cat;
@@ -1434,12 +1480,22 @@
             const name = document.getElementById('name').value.trim();
             const amountStr = document.getElementById('amount').value.replace(/\./g, '');
             const amount = parseInt(amountStr);
-            const category = document.getElementById('category').value;
+            const selectedCategory = document.getElementById('category').value; // Ini bisa berupa 'Category' atau 'Category:SubCategory'
             const date = document.getElementById('date').value;
 
             if (!name || !amountStr || !date || isNaN(amount)) {
                 alert('Please fill in all fields');
                 return;
+            }
+            
+            // Pisahkan Category dan SubCategory dari dropdown
+            let category = selectedCategory;
+            let subCategory = '';
+            
+            if (selectedCategory.includes(':')) {
+                const parts = selectedCategory.split(':');
+                category = parts[0];
+                subCategory = parts.slice(1).join(':'); // Handle kasus subcategory yang juga mengandung ":"
             }
 
             const expense = {
@@ -1447,6 +1503,7 @@
                 name: name,
                 amount: amount,
                 category: category,
+                subCategory: subCategory, // Simpan subCategory di field terpisah
                 date: date
             };
 
@@ -1463,6 +1520,7 @@
             document.getElementById('name').value = '';
             document.getElementById('amount').value = '';
             document.getElementById('date').value = today;
+            // Biarkan kategori tetap terpilih
         }
 
         function deleteExpense(id) {
@@ -1488,19 +1546,25 @@
             // Sort by date (newest first)
             const sorted = [...expenses].sort((a, b) => new Date(b.date) - new Date(a.date));
 
-            list.innerHTML = sorted.map(expense => `
+            list.innerHTML = sorted.map(expense => {
+                const displayCategory = expense.subCategory 
+                    ? `${expense.category} > ${expense.subCategory}` 
+                    : expense.category;
+                    
+                return `
                 <div class="expense-item">
                     <div class="expense-info">
                         <div class="expense-name">
                             ${expense.name}
-                            <span class="category-badge">${expense.category}${expense.subCategory ? ' > ' + expense.subCategory : ''}</span>
+                            <span class="category-badge">${displayCategory || 'N/A'}</span>
                         </div>
                         <div class="expense-details">${new Date(expense.date + 'T00:00:00').toLocaleDateString()}</div>
                     </div>
                     <div class="expense-amount">Rp ${expense.amount.toLocaleString('id-ID')}</div>
                     <button class="delete-btn" onclick="deleteExpense(${expense.id})">Delete</button>
                 </div>
-            `).join('');
+                `;
+            }).join('');
 
             // Update total
             const total = expenses.reduce((sum, exp) => sum + exp.amount, 0);
