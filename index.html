@@ -888,12 +888,15 @@
         function renderAnalytics() {
             console.log('Rendering analytics...');
             console.log('Total expenses:', expenses.length);
+            console.log('All expenses:', expenses);
 
             // Calculate spending by category and subcategory
             const categoryData = {};
             let totalSpending = 0;
 
             expenses.forEach(expense => {
+                console.log('Processing expense:', expense);
+                
                 // Initialize category if not exists
                 if (!categoryData[expense.category]) {
                     categoryData[expense.category] = {
@@ -908,10 +911,13 @@
 
                 // Add to subcategory if exists
                 if (expense.subCategory) {
+                    console.log('Has subcategory:', expense.subCategory);
                     if (!categoryData[expense.category].subCategories[expense.subCategory]) {
                         categoryData[expense.category].subCategories[expense.subCategory] = 0;
                     }
                     categoryData[expense.category].subCategories[expense.subCategory] += expense.amount;
+                } else {
+                    console.log('No subcategory');
                 }
             });
 
