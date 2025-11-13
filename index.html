@@ -392,12 +392,36 @@
             font-weight: 600;
             color: #764ba2;
         }
+        
+        /* New style for filter section */
+        .filter-section {
+            margin-bottom: 20px;
+            padding: 15px;
+            background: #f0f3ff;
+            border-radius: 8px;
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+        
+        .filter-section label {
+            margin-bottom: 0;
+            font-weight: normal;
+            color: #333;
+        }
+        
+        .filter-section select {
+            width: auto;
+            flex-grow: 1;
+            padding: 8px;
+            border-color: #d0d0ff;
+        }
     </style>
 </head>
 <body>
     <div class="container">
         <div class="header">
-            <h1>💰 Monthly Expenses</h1>
+            <h1 id="headerTitle">💰 Monthly Expenses</h1>
             <div class="total" id="totalAmount">Rp 0</div>
         </div>
 
@@ -444,7 +468,11 @@
 
                     <button type="button" class="add-btn" onclick="addExpense()">Add Expense</button>
                 </div>
-
+                
+                <div class="filter-section">
+                    <label for="monthFilter">View Month:</label>
+                    <select id="monthFilter" onchange="filterExpensesByMonth()"></select>
+                </div>
                 <div class="expenses-list">
                     <div id="expensesList"></div>
                 </div>
@@ -558,7 +586,6 @@
     </div>
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
     <script>
         let expenses = [];
         let customCategories = [];
@@ -569,6 +596,10 @@
         // GitHub Gist Configuration
         let GITHUB_TOKEN = localStorage.getItem('github_token') || '';
         let GIST_ID = localStorage.getItem('gist_id') || '';
+
+        // NEW: Variabel untuk melacak bulan yang sedang difilter (YYYY-MM)
+        const currentMonthYear = new Date().toISOString().substring(0, 7);
+        let selectedMonthYear = currentMonthYear;
 
         // Set today's date as default
         const today = new Date().toISOString().split('T')[0];
@@ -662,9 +693,8 @@
         loadExpenses();
         loadCategories();
 
-        // --- FUNGSI GIST BARU/MODIFIKASI DIMULAI DI SINI ---
+        // --- FUNGSI GIST BARU/MODIFIKASI ---
         
-        // NEW: Fungsi untuk mencari Gist ID yang sudah ada di akun GitHub
         async function findExistingGist() {
             try {
                 const response = await fetch('https://api.github.com/gists', {
@@ -674,14 +704,12 @@
                 });
 
                 if (!response.ok) {
-                    // Coba baca error body untuk detail lebih lanjut
                     const errorBody = await response.json();
                     throw new Error('Failed to fetch gists list. Status: ' + response.status + (errorBody.message ? ' - ' + errorBody.message : ''));
                 }
                 
                 const gists = await response.json();
                 
-                // Cari Gist dengan deskripsi dan file yang cocok
                 const existingGist = gists.find(g => 
                     g.description === 'Expense Tracker Data' && 
                     g.files && 
@@ -693,14 +721,13 @@
                     return existingGist.id;
                 }
                 
-                return null; // Tidak ditemukan
+                return null;
                 
             } catch (error) {
                 console.error('Error finding existing Gist:', error);
                 return null;
             }
         }
-        // END NEW
 
         async function saveGitHubToken() {
             const token = document.getElementById('githubToken').value.trim();
@@ -712,17 +739,12 @@
             GITHUB_TOKEN = token;
             localStorage.setItem('github_token', token);
             
-            // Set GIST_ID menjadi null agar syncToGist memaksa pencarian Gist ID yang ada
             GIST_ID = '';
             localStorage.removeItem('gist_id');
 
             await syncToGist();
-            
-            // Setelah sync, jika GIST_ID ditemukan atau dibuat, loadFromGist akan dipanggil di dalam syncToGist
-            // Jika GIST_ID sudah ada dari awal (di perangkat lama), ia akan langsung memuat data terbaru dari Gist.
         }
 
-        // MODIFIED: Fungsi syncToGist diperbarui untuk mencoba mencari Gist ID yang sudah ada
         async function syncToGist() {
             if (!GITHUB_TOKEN) {
                 alert('Please configure GitHub token first');
@@ -738,20 +760,17 @@
             try {
                 updateSyncStatus('Syncing...', '#667eea');
                 
-                // MODIFIKASI UTAMA: Jika GIST_ID kosong, cari dulu ID yang sudah ada.
                 if (!GIST_ID) {
                     const foundId = await findExistingGist();
                     if (foundId) {
                         GIST_ID = foundId;
                         localStorage.setItem('gist_id', GIST_ID);
                         updateSyncStatus('✓ Gist ID ditemukan. Mencoba memuat data lama.', '#ffc107');
-                        // Setelah Gist ID ditemukan, kita harus load datanya dari Gist yang baru ditemukan
-                        await loadFromGist(true); // Memaksa load data dari Gist yang baru ditemukan
+                        await loadFromGist(true); 
                     }
                 }
 
                 if (GIST_ID) {
-                    // Update existing gist
                     const response = await fetch(`https://api.github.com/gists/${GIST_ID}`, {
                         method: 'PATCH',
                         headers: {
@@ -773,7 +792,6 @@
                     }
                     updateSyncStatus('✓ Synced successfully', '#43e97b');
                 } else {
-                    // Create new gist (hanya jika tidak ditemukan ID Gist yang sudah ada)
                     const response = await fetch('https://api.github.com/gists', {
                         method: 'POST',
                         headers: {
@@ -810,15 +828,12 @@
             }
         }
 
-        // MODIFIED: Fungsi loadFromGist diperbarui untuk mendukung pemuatan data paksa
         async function loadFromGist(forceLoad = false) {
             if (!GITHUB_TOKEN || !GIST_ID) {
                 return;
             }
             
-            // Tambahkan pengecekan ini: jika data lokal sudah ada, tidak perlu memuat dari Gist kecuali dipaksa (forceLoad=true)
             if (!forceLoad && expenses.length > 0 && customCategories.length > 0) {
-                // Asumsi data sudah dimuat dan tidak perlu memuat ulang
                 return;
             }
 
@@ -838,7 +853,6 @@
 
                 const gist = await response.json();
                 
-                // Pastikan file data ada sebelum parsing
                 if (!gist.files || !gist.files['expense-data.json']) {
                     throw new Error('Gist file not found or empty.');
                 }
@@ -850,10 +864,10 @@
                 customCategories = data.categories || [];
                 subCategories = data.subCategories || {};
 
-                // Auto-fix expenses that might have combined category:subcategory format
                 fixExpensesFormat();
 
                 updateCategoryDropdown();
+                renderMonthFilter(); // NEW: Render filter setelah data dimuat
                 renderExpenses();
                 
                 if (forceLoad) {
@@ -867,7 +881,7 @@
             }
         }
         
-        // END FUNGSI GIST BARU/MODIFIKASI
+        // --- AKHIR FUNGSI GIST ---
 
         function updateSyncStatus(message, color) {
             const statusDiv = document.getElementById('syncStatus');
@@ -887,8 +901,6 @@
         }
 
         async function manualSync() {
-            // Hapus GIST_ID sementara jika ada bug, agar ia mencari ulang
-            // if (!GIST_ID) { localStorage.removeItem('gist_id'); } // Dihapus karena sudah ditangani di saveGitHubToken
             await syncToGist();
         }
 
@@ -911,7 +923,6 @@
             
             let fixedCount = 0;
             expenses = expenses.map(expense => {
-                // Periksa apakah kategori mengandung subCategory
                 let currentCategory = expense.category || '';
                 let currentSubCategory = expense.subCategory || '';
 
@@ -919,7 +930,6 @@
                     const parts = currentCategory.split(':');
                     fixedCount++;
                     
-                    // Asumsi bagian pertama adalah Category, sisanya adalah SubCategory
                     return {
                         ...expense,
                         category: parts[0],
@@ -927,7 +937,6 @@
                     };
                 }
                 
-                // Jika sudah dalam format yang benar (category dan subCategory terpisah), tidak diubah
                 return expense;
             });
             
@@ -940,21 +949,76 @@
         if (GITHUB_TOKEN && GIST_ID) {
             loadFromGist();
         }
+        
+        // NEW: Fungsi untuk merender filter bulan
+        function renderMonthFilter() {
+            const select = document.getElementById('monthFilter');
+            const allMonths = new Set();
+            
+            // Kumpulkan semua bulan unik dari data pengeluaran
+            expenses.forEach(expense => {
+                if (expense.date) {
+                    // Ambil format YYYY-MM
+                    const monthYear = expense.date.substring(0, 7);
+                    allMonths.add(monthYear);
+                }
+            });
+
+            // Konversi ke array, urutkan dari yang terbaru
+            const sortedMonths = Array.from(allMonths).sort((a, b) => new Date(b) - new Date(a));
+            
+            select.innerHTML = '';
+            
+            // Tambahkan opsi "All Time"
+            const allOption = document.createElement('option');
+            allOption.value = 'all';
+            allOption.textContent = 'All Time';
+            select.appendChild(allOption);
+            
+            sortedMonths.forEach(monthYear => {
+                const option = document.createElement('option');
+                option.value = monthYear;
+                
+                // Format YYYY-MM ke nama bulan (e.g., Nov 2025)
+                const date = new Date(monthYear + '-01');
+                const monthName = date.toLocaleString('en-US', { month: 'short', year: 'numeric' });
+                option.textContent = monthName;
+                
+                select.appendChild(option);
+            });
+            
+            // Set bulan yang dipilih saat ini atau default ke 'all'
+            if (sortedMonths.includes(currentMonthYear)) {
+                selectedMonthYear = currentMonthYear;
+            } else {
+                 selectedMonthYear = sortedMonths.length > 0 ? sortedMonths[0] : 'all';
+            }
+            
+            select.value = selectedMonthYear;
+        }
+        
+        // NEW: Fungsi untuk mengubah filter bulan
+        function filterExpensesByMonth() {
+            selectedMonthYear = document.getElementById('monthFilter').value;
+            renderExpenses();
+            // Tidak perlu renderAnalytics di sini, karena Analytics selalu memproses semua data
+        }
+        // END NEW FUNCTIONS
 
         function showPage(pageName) {
-            // Update tabs
             document.querySelectorAll('.nav-tab').forEach(tab => {
                 tab.classList.remove('active');
             });
             event.target.classList.add('active');
 
-            // Update pages
             document.querySelectorAll('.page').forEach(page => {
                 page.classList.remove('active');
             });
 
             if (pageName === 'expenses') {
                 document.getElementById('expensesPage').classList.add('active');
+                renderMonthFilter(); // NEW: Pastikan filter bulan selalu diperbarui saat membuka halaman Expenses
+                renderExpenses();
             } else if (pageName === 'analytics') {
                 document.getElementById('analyticsPage').classList.add('active');
                 renderAnalytics();
@@ -973,13 +1037,11 @@
         }
 
         function renderAnalytics() {
-            // ... (Fungsi ini tidak diubah)
-            
             const categoryData = {};
             let totalSpending = 0;
 
+            // Analytics selalu memproses SEMUA data
             expenses.forEach(expense => {
-                // Pastikan category ada sebelum memproses
                 const cat = expense.category || 'Uncategorized';
                 
                 if (!categoryData[cat]) {
@@ -1001,7 +1063,7 @@
                 }
             });
 
-            // Check if there are any expenses
+            // ... (Kode render Analytics lainnya tidak diubah)
             if (totalSpending === 0) {
                 document.getElementById('categoryBreakdown').innerHTML = '<div class="empty-state">No expenses to analyze yet. Add some expenses first!</div>';
                 const canvas = document.getElementById('categoryChart');
@@ -1014,11 +1076,9 @@
                 return;
             }
 
-            // Sort categories by total amount
             const sortedCategories = Object.entries(categoryData)
                 .sort((a, b) => b[1].total - a[1].total);
 
-            // Prepare data for chart (main categories only)
             const labels = sortedCategories.map(item => item[0]);
             const data = sortedCategories.map(item => item[1].total);
             const colors = [
@@ -1034,12 +1094,10 @@
                 '#fbc2eb'
             ];
 
-            // Destroy previous chart if exists
             if (categoryChart) {
                 categoryChart.destroy();
             }
 
-            // Create pie chart
             const ctx = document.getElementById('categoryChart').getContext('2d');
             categoryChart = new Chart(ctx, {
                 type: 'doughnut',
@@ -1079,7 +1137,6 @@
                 }
             });
 
-            // Render breakdown list with expandable subcategories
             const breakdownDiv = document.getElementById('categoryBreakdown');
             breakdownDiv.innerHTML = '';
 
@@ -1088,11 +1145,9 @@
                 const hasSubCategories = Object.keys(data.subCategories).length > 0;
                 const categoryId = `cat-${index}`;
 
-                // Create main item
                 const itemDiv = document.createElement('div');
                 itemDiv.className = 'breakdown-item';
 
-                // Create header
                 const headerDiv = document.createElement('div');
                 headerDiv.className = 'breakdown-header';
                 if (hasSubCategories) {
@@ -1102,7 +1157,6 @@
                     };
                 }
 
-                // Create info section
                 const infoDiv = document.createElement('div');
                 infoDiv.className = 'breakdown-info';
 
@@ -1146,7 +1200,6 @@
                 headerDiv.appendChild(amountDiv);
                 itemDiv.appendChild(headerDiv);
 
-                // Add subcategories if any
                 if (hasSubCategories) {
                     const sortedSubs = Object.entries(data.subCategories)
                         .sort((a, b) => b[1] - a[1]);
@@ -1255,7 +1308,6 @@
             renderSubCategories();
             subCatInput.value = '';
             
-            // Auto-sync to GitHub if configured
             if (GITHUB_TOKEN && GIST_ID) {
                 syncToGist();
             }
@@ -1271,7 +1323,6 @@
                 updateCategoryDropdown();
                 renderSubCategories();
                 
-                // Auto-sync to GitHub if configured
                 if (GITHUB_TOKEN && GIST_ID) {
                     syncToGist();
                 }
@@ -1348,7 +1399,6 @@
             renderCategories();
             input.value = '';
             
-            // Auto-sync to GitHub if configured
             if (GITHUB_TOKEN && GIST_ID) {
                 syncToGist();
             }
@@ -1360,7 +1410,6 @@
 
             list.innerHTML = '';
 
-            // Default categories section
             const defaultTitle = document.createElement('h3');
             defaultTitle.style.marginBottom = '15px';
             defaultTitle.style.color = '#666';
@@ -1379,7 +1428,6 @@
                 list.appendChild(item);
             });
 
-            // Custom categories section
             if (customCategories.length > 0) {
                 const customTitle = document.createElement('h3');
                 customTitle.style.margin = '25px 0 15px';
@@ -1409,56 +1457,38 @@
             }
         }
 
-        // Allow Enter key in category input
         document.getElementById('newCategoryInput').addEventListener('keypress', function(e) {
             if (e.key === 'Enter') {
                 addCategoryFromPage();
             }
         });
 
-        // Allow Enter key in sub category input
         document.getElementById('newSubCategoryInput').addEventListener('keypress', function(e) {
             if (e.key === 'Enter') {
                 addSubCategory();
             }
         });
 
-        function loadExpenses() {
-            // Skip browser storage, only load from Gist
-        }
-
-        function loadCategories() {
-            // Skip browser storage, only load from Gist
-        }
-
-        function saveExpenses() {
-            // Saving expenses to memory only (Gist will sync)
-        }
-
-        function saveCategories() {
-            // Saving categories to memory only (Gist will sync)
-        }
+        function loadExpenses() {}
+        function loadCategories() {}
+        function saveExpenses() {}
+        function saveCategories() {}
 
         function updateCategoryDropdown() {
             const select = document.getElementById('category');
             
-            // Default categories
             const defaultCategories = ['Food', 'Transport', 'Shopping', 'Bills', 'Entertainment', 'Other'];
             
-            // Clear and rebuild
             select.innerHTML = '';
             
-            // Combine default and custom categories
             const allCategories = [...defaultCategories, ...customCategories];
 
             allCategories.forEach(cat => {
-                // Add main category
                 const option = document.createElement('option');
                 option.value = cat;
                 option.textContent = cat;
                 select.appendChild(option);
 
-                // Add sub-categories with indentation
                 const subs = subCategories[cat] || [];
                 subs.forEach(sub => {
                     const subOption = document.createElement('option');
@@ -1469,7 +1499,6 @@
                 });
             });
             
-            // Add "Add New" option
             const newOption = document.createElement('option');
             newOption.value = '__new__';
             newOption.textContent = '+ Add New Category';
@@ -1480,7 +1509,7 @@
             const name = document.getElementById('name').value.trim();
             const amountStr = document.getElementById('amount').value.replace(/\./g, '');
             const amount = parseInt(amountStr);
-            const selectedCategory = document.getElementById('category').value; // Ini bisa berupa 'Category' atau 'Category:SubCategory'
+            const selectedCategory = document.getElementById('category').value;
             const date = document.getElementById('date').value;
 
             if (!name || !amountStr || !date || isNaN(amount)) {
@@ -1488,14 +1517,13 @@
                 return;
             }
             
-            // Pisahkan Category dan SubCategory dari dropdown
             let category = selectedCategory;
             let subCategory = '';
             
             if (selectedCategory.includes(':')) {
                 const parts = selectedCategory.split(':');
                 category = parts[0];
-                subCategory = parts.slice(1).join(':'); // Handle kasus subcategory yang juga mengandung ":"
+                subCategory = parts.slice(1).join(':');
             }
 
             const expense = {
@@ -1503,32 +1531,34 @@
                 name: name,
                 amount: amount,
                 category: category,
-                subCategory: subCategory, // Simpan subCategory di field terpisah
+                subCategory: subCategory,
                 date: date
             };
 
             expenses.push(expense);
             saveExpenses();
+            
+            // NEW: Render ulang filter bulan dan expenses
+            renderMonthFilter();
             renderExpenses();
             
-            // Auto-sync to GitHub if configured
             if (GITHUB_TOKEN && GIST_ID) {
                 syncToGist();
             }
             
-            // Clear form
             document.getElementById('name').value = '';
             document.getElementById('amount').value = '';
             document.getElementById('date').value = today;
-            // Biarkan kategori tetap terpilih
         }
 
         function deleteExpense(id) {
             expenses = expenses.filter(exp => exp.id !== id);
             saveExpenses();
+            
+            // NEW: Render ulang filter bulan dan expenses
+            renderMonthFilter();
             renderExpenses();
             
-            // Auto-sync to GitHub if configured
             if (GITHUB_TOKEN && GIST_ID) {
                 syncToGist();
             }
@@ -1536,15 +1566,38 @@
 
         function renderExpenses() {
             const list = document.getElementById('expensesList');
-            
-            if (expenses.length === 0) {
-                list.innerHTML = '<div class="empty-state">No expenses yet. Add your first expense above!</div>';
-                document.getElementById('totalAmount').textContent = 'Rp 0';
+            const headerTitle = document.getElementById('headerTitle');
+            const monthNames = ["Jan", "Feb", "Mar", "Apr", "Mei", "Jun", "Jul", "Agu", "Sep", "Okt", "Nov", "Des"];
+
+            // 1. FILTER DATA
+            let filteredExpenses = expenses;
+            let titleText = 'All Expenses';
+
+            if (selectedMonthYear !== 'all') {
+                filteredExpenses = expenses.filter(exp => exp.date && exp.date.startsWith(selectedMonthYear));
+                
+                const dateParts = selectedMonthYear.split('-');
+                const year = dateParts[0];
+                const monthIndex = parseInt(dateParts[1]) - 1;
+                titleText = `${monthNames[monthIndex]} ${year}`;
+            }
+
+            // 2. PERBARUI HEADER
+            headerTitle.textContent = `💰 Pengeluaran Bulan ${titleText}`;
+
+            // 3. HITUNG TOTAL
+            const total = filteredExpenses.reduce((sum, exp) => sum + exp.amount, 0);
+            document.getElementById('totalAmount').textContent = `Rp ${total.toLocaleString('id-ID')}`;
+
+
+            if (filteredExpenses.length === 0) {
+                const month = selectedMonthYear !== 'all' ? `bulan ${titleText}` : 'saat ini';
+                list.innerHTML = `<div class="empty-state">Tidak ada pengeluaran untuk ${month}.</div>`;
                 return;
             }
 
-            // Sort by date (newest first)
-            const sorted = [...expenses].sort((a, b) => new Date(b.date) - new Date(a.date));
+            // 4. RENDER LIST (diurutkan berdasarkan tanggal terbaru)
+            const sorted = [...filteredExpenses].sort((a, b) => new Date(b.date) - new Date(a.date));
 
             list.innerHTML = sorted.map(expense => {
                 const displayCategory = expense.subCategory 
@@ -1558,17 +1611,13 @@
                             ${expense.name}
                             <span class="category-badge">${displayCategory || 'N/A'}</span>
                         </div>
-                        <div class="expense-details">${new Date(expense.date + 'T00:00:00').toLocaleDateString()}</div>
+                        <div class="expense-details">${new Date(expense.date + 'T00:00:00').toLocaleDateString('id-ID', { year: 'numeric', month: 'long', day: 'numeric' })}</div>
                     </div>
                     <div class="expense-amount">Rp ${expense.amount.toLocaleString('id-ID')}</div>
                     <button class="delete-btn" onclick="deleteExpense(${expense.id})">Delete</button>
                 </div>
                 `;
             }).join('');
-
-            // Update total
-            const total = expenses.reduce((sum, exp) => sum + exp.amount, 0);
-            document.getElementById('totalAmount').textContent = `Rp ${total.toLocaleString('id-ID')}`;
         }
     </script>
 </body>
