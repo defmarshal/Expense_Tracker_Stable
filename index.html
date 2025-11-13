@@ -1,0 +1,1279 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Monthly Expense Tracker</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 2em;
+            margin-bottom: 10px;
+        }
+
+        .total {
+            font-size: 2.5em;
+            font-weight: bold;
+            margin-top: 10px;
+        }
+
+        .content {
+            padding: 30px;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 5px;
+            color: #333;
+            font-weight: 600;
+        }
+
+        input, select {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 16px;
+            transition: border-color 0.3s;
+        }
+
+        input:focus, select:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .form-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+        }
+
+        .add-btn {
+            width: 100%;
+            padding: 15px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.2s;
+        }
+
+        .add-btn:hover {
+            transform: translateY(-2px);
+        }
+
+        .add-btn:active {
+            transform: translateY(0);
+        }
+
+        .expenses-list {
+            margin-top: 30px;
+        }
+
+        .expense-item {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 10px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            transition: transform 0.2s;
+        }
+
+        .expense-item:hover {
+            transform: translateX(5px);
+        }
+
+        .expense-info {
+            flex: 1;
+        }
+
+        .expense-name {
+            font-weight: 600;
+            font-size: 1.1em;
+            color: #333;
+        }
+
+        .expense-details {
+            font-size: 0.9em;
+            color: #666;
+            margin-top: 5px;
+        }
+
+        .expense-amount {
+            font-size: 1.3em;
+            font-weight: bold;
+            color: #667eea;
+            margin-right: 15px;
+        }
+
+        .delete-btn {
+            background: #ff4757;
+            color: white;
+            border: none;
+            padding: 8px 15px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 0.9em;
+            transition: background 0.3s;
+        }
+
+        .delete-btn:hover {
+            background: #ff3838;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 40px;
+            color: #999;
+        }
+
+        .category-badge {
+            display: inline-block;
+            padding: 3px 10px;
+            border-radius: 12px;
+            font-size: 0.85em;
+            margin-left: 10px;
+            background: #e0e7ff;
+            color: #667eea;
+        }
+
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .modal.active {
+            display: flex;
+        }
+
+        .modal-content {
+            background: white;
+            padding: 30px;
+            border-radius: 15px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+            max-width: 400px;
+            width: 90%;
+        }
+
+        .modal-content h3 {
+            margin-bottom: 20px;
+            color: #333;
+        }
+
+        .modal-buttons {
+            display: flex;
+            gap: 10px;
+            margin-top: 20px;
+        }
+
+        .modal-buttons button {
+            flex: 1;
+        }
+
+        .cancel-btn {
+            background: #6c757d;
+        }
+
+        .nav-tabs {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            border-bottom: 2px solid #e0e0e0;
+            flex-wrap: wrap;
+        }
+
+        .nav-tab {
+            padding: 12px 24px;
+            background: none;
+            border: none;
+            border-bottom: 3px solid transparent;
+            color: #666;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: 600;
+            transition: all 0.3s;
+            width: auto;
+        }
+
+        .nav-tab:hover {
+            color: #667eea;
+            transform: none;
+        }
+
+        .nav-tab.active {
+            color: #667eea;
+            border-bottom-color: #667eea;
+        }
+
+        .page {
+            display: none;
+        }
+
+        .page.active {
+            display: block;
+        }
+
+        .category-list {
+            margin-top: 20px;
+        }
+
+        .category-item {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 10px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .category-item.default {
+            opacity: 0.6;
+        }
+
+        .category-name {
+            font-weight: 600;
+            font-size: 1.1em;
+            color: #333;
+        }
+
+        .default-label {
+            font-size: 0.85em;
+            color: #999;
+            margin-left: 10px;
+        }
+
+        .breakdown-item {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 10px;
+        }
+
+        .breakdown-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            cursor: pointer;
+            user-select: none;
+        }
+
+        .breakdown-header:hover {
+            opacity: 0.8;
+        }
+
+        .breakdown-info {
+            flex: 1;
+        }
+
+        .breakdown-category {
+            font-weight: 600;
+            font-size: 1.1em;
+            color: #333;
+            margin-bottom: 5px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .expand-icon {
+            font-size: 1em;
+            color: #667eea;
+            transition: transform 0.3s;
+            display: inline-block;
+            width: 20px;
+            text-align: center;
+        }
+
+        .expand-icon.expanded {
+            transform: rotate(90deg);
+        }
+
+        .breakdown-bar {
+            height: 8px;
+            background: #e0e0e0;
+            border-radius: 4px;
+            overflow: hidden;
+            margin-top: 8px;
+        }
+
+        .breakdown-fill {
+            height: 100%;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-radius: 4px;
+            transition: width 0.3s;
+        }
+
+        .breakdown-amount {
+            font-size: 1.2em;
+            font-weight: bold;
+            color: #667eea;
+            margin-left: 20px;
+        }
+
+        .breakdown-percent {
+            font-size: 0.9em;
+            color: #666;
+        }
+
+        .subcategory-list {
+            display: none;
+            margin-top: 15px;
+            padding-left: 20px;
+            border-left: 3px solid #e0e0e0;
+        }
+
+        .subcategory-list.expanded {
+            display: block;
+        }
+
+        .subcategory-item {
+            background: white;
+            padding: 12px;
+            border-radius: 6px;
+            margin-bottom: 8px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .subcategory-name {
+            font-size: 0.95em;
+            color: #555;
+        }
+
+        .subcategory-amount {
+            font-size: 1em;
+            font-weight: 600;
+            color: #764ba2;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>💰 Monthly Expenses</h1>
+            <div class="total" id="totalAmount">Rp 0</div>
+        </div>
+
+        <div class="content">
+            <div class="nav-tabs">
+                <button class="nav-tab active" onclick="showPage('expenses')">Expenses</button>
+                <button class="nav-tab" onclick="showPage('analytics')">Analytics</button>
+                <button class="nav-tab" onclick="showPage('categories')">Categories</button>
+                <button class="nav-tab" onclick="showPage('subcategories')">Sub Categories</button>
+            </div>
+
+            <div id="expensesPage" class="page active">
+                <div id="expenseForm">
+                    <div class="form-group">
+                        <label for="name">Expense Name</label>
+                        <input type="text" id="name" placeholder="e.g., Groceries">
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="amount">Amount (Rp)</label>
+                            <input type="text" id="amount" placeholder="0">
+                        </div>
+
+                        <div class="form-group">
+                            <label for="category">Category</label>
+                            <select id="category">
+                                <option value="Food">Food</option>
+                                <option value="Transport">Transport</option>
+                                <option value="Shopping">Shopping</option>
+                                <option value="Bills">Bills</option>
+                                <option value="Entertainment">Entertainment</option>
+                                <option value="Other">Other</option>
+                                <option value="__new__">+ Add New Category</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="date">Date</label>
+                        <input type="date" id="date">
+                    </div>
+
+                    <button type="button" class="add-btn" onclick="addExpense()">Add Expense</button>
+                </div>
+
+                <div class="expenses-list">
+                    <div id="expensesList"></div>
+                </div>
+            </div>
+
+            <div id="analyticsPage" class="page">
+                <div id="analyticsContent">
+                    <h2 style="margin-bottom: 20px; color: #333;">Spending by Category</h2>
+                    <div style="max-width: 500px; margin: 0 auto 40px;">
+                        <canvas id="categoryChart"></canvas>
+                    </div>
+                    
+                    <div style="margin-top: 40px;">
+                        <h3 style="margin-bottom: 20px; color: #666;">Category Breakdown</h3>
+                        <div id="categoryBreakdown"></div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="categoriesPage" class="page">
+                <div class="form-group">
+                    <label for="newCategoryInput">New Category Name</label>
+                    <input type="text" id="newCategoryInput" placeholder="Enter category name">
+                </div>
+                <button type="button" class="add-btn" onclick="addCategoryFromPage()">Add Category</button>
+
+                <div class="category-list">
+                    <div id="categoryList"></div>
+                </div>
+            </div>
+
+            <div id="subCategoriesPage" class="page">
+                <div class="form-group">
+                    <label for="parentCategorySelect">Select Category</label>
+                    <select id="parentCategorySelect">
+                        <option value="">Choose a category</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label for="newSubCategoryInput">New Sub Category Name</label>
+                    <input type="text" id="newSubCategoryInput" placeholder="Enter sub category name">
+                </div>
+                <button type="button" class="add-btn" onclick="addSubCategory()">Add Sub Category</button>
+
+                <div class="category-list">
+                    <div id="subCategoryList"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal" id="categoryModal">
+        <div class="modal-content">
+            <h3>Add New Category</h3>
+            <div class="form-group">
+                <label for="newCategoryName">Category Name</label>
+                <input type="text" id="newCategoryName" placeholder="Enter category name">
+            </div>
+            <div class="modal-buttons">
+                <button class="cancel-btn" onclick="closeCategoryModal()">Cancel</button>
+                <button onclick="saveNewCategory()">Add Category</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal" id="deleteModal">
+        <div class="modal-content">
+            <h3>Delete Category</h3>
+            <p id="deleteMessage" style="margin: 20px 0; color: #666;"></p>
+            <div class="modal-buttons">
+                <button class="cancel-btn" onclick="closeDeleteModal()">Cancel</button>
+                <button style="background: #ff4757;" onclick="confirmDelete()">Delete</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
+    <script>
+        let expenses = [];
+        let customCategories = [];
+        let subCategories = {}; // { categoryName: [subcat1, subcat2, ...] }
+        let categoryToDelete = null;
+        let categoryChart = null;
+
+        // Set today's date as default
+        const today = new Date().toISOString().split('T')[0];
+        document.getElementById('date').value = today;
+
+        // Format number input with thousand separator
+        const amountInput = document.getElementById('amount');
+        amountInput.addEventListener('input', function(e) {
+            let value = e.target.value.replace(/\D/g, '');
+            if (value) {
+                value = parseInt(value).toLocaleString('id-ID');
+            }
+            e.target.value = value;
+        });
+
+        // Handle category selection
+        const catSelect = document.getElementById('category');
+        catSelect.onchange = function() {
+            console.log('Category changed to:', this.value);
+            if (this.value === '__new__') {
+                openCategoryModal();
+            }
+        };
+
+        function openCategoryModal() {
+            document.getElementById('categoryModal').classList.add('active');
+            document.getElementById('newCategoryName').value = '';
+            document.getElementById('newCategoryName').focus();
+        }
+
+        function closeCategoryModal() {
+            document.getElementById('categoryModal').classList.remove('active');
+            document.getElementById('category').value = 'Other';
+        }
+
+        function closeDeleteModal() {
+            document.getElementById('deleteModal').classList.remove('active');
+            categoryToDelete = null;
+        }
+
+        function openDeleteModal(categoryName) {
+            categoryToDelete = categoryName;
+            document.getElementById('deleteMessage').textContent = `Are you sure you want to delete "${categoryName}"?`;
+            document.getElementById('deleteModal').classList.add('active');
+        }
+
+        function confirmDelete() {
+            if (categoryToDelete) {
+                customCategories = customCategories.filter(c => c !== categoryToDelete);
+                saveCategories();
+                updateCategoryDropdown();
+                renderCategories();
+                closeDeleteModal();
+            }
+        }
+
+        function saveNewCategory() {
+            const newCategory = document.getElementById('newCategoryName').value.trim();
+            if (newCategory) {
+                if (!customCategories.includes(newCategory)) {
+                    customCategories.push(newCategory);
+                    saveCategories();
+                    updateCategoryDropdown();
+                }
+                document.getElementById('category').value = newCategory;
+                document.getElementById('categoryModal').classList.remove('active');
+            } else {
+                alert('Please enter a category name');
+            }
+        }
+
+        // Allow Enter key to save category
+        document.getElementById('newCategoryName').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                saveNewCategory();
+            }
+        });
+
+        // Load expenses from storage on startup
+        loadExpenses();
+        loadCategories();
+
+        function showPage(pageName) {
+            // Update tabs
+            document.querySelectorAll('.nav-tab').forEach(tab => {
+                tab.classList.remove('active');
+            });
+            event.target.classList.add('active');
+
+            // Update pages
+            document.querySelectorAll('.page').forEach(page => {
+                page.classList.remove('active');
+            });
+
+            if (pageName === 'expenses') {
+                document.getElementById('expensesPage').classList.add('active');
+            } else if (pageName === 'analytics') {
+                document.getElementById('analyticsPage').classList.add('active');
+                renderAnalytics();
+            } else if (pageName === 'categories') {
+                document.getElementById('categoriesPage').classList.add('active');
+                renderCategories();
+            } else if (pageName === 'subcategories') {
+                document.getElementById('subCategoriesPage').classList.add('active');
+                updateParentCategorySelect();
+                renderSubCategories();
+            }
+        }
+
+        function renderAnalytics() {
+            console.log('Rendering analytics...');
+            console.log('Total expenses:', expenses.length);
+
+            // Calculate spending by category and subcategory
+            const categoryData = {};
+            let totalSpending = 0;
+
+            expenses.forEach(expense => {
+                // Initialize category if not exists
+                if (!categoryData[expense.category]) {
+                    categoryData[expense.category] = {
+                        total: 0,
+                        subCategories: {}
+                    };
+                }
+                
+                // Add to category total
+                categoryData[expense.category].total += expense.amount;
+                totalSpending += expense.amount;
+
+                // Add to subcategory if exists
+                if (expense.subCategory) {
+                    if (!categoryData[expense.category].subCategories[expense.subCategory]) {
+                        categoryData[expense.category].subCategories[expense.subCategory] = 0;
+                    }
+                    categoryData[expense.category].subCategories[expense.subCategory] += expense.amount;
+                }
+            });
+
+            console.log('Category data:', categoryData);
+            console.log('Total spending:', totalSpending);
+
+            // Debug: Check each category's subcategories
+            Object.entries(categoryData).forEach(([cat, data]) => {
+                console.log(`Category ${cat}: total=${data.total}, subCats=`, data.subCategories);
+            });
+
+            // Check if there are any expenses
+            if (totalSpending === 0) {
+                document.getElementById('categoryBreakdown').innerHTML = '<div class="empty-state">No expenses to analyze yet. Add some expenses first!</div>';
+                const canvas = document.getElementById('categoryChart');
+                const ctx = canvas.getContext('2d');
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                if (categoryChart) {
+                    categoryChart.destroy();
+                    categoryChart = null;
+                }
+                return;
+            }
+
+            // Sort categories by total amount
+            const sortedCategories = Object.entries(categoryData)
+                .sort((a, b) => b[1].total - a[1].total);
+
+            // Prepare data for chart (main categories only)
+            const labels = sortedCategories.map(item => item[0]);
+            const data = sortedCategories.map(item => item[1].total);
+            const colors = [
+                '#667eea',
+                '#764ba2',
+                '#f093fb',
+                '#4facfe',
+                '#43e97b',
+                '#fa709a',
+                '#fee140',
+                '#30cfd0',
+                '#a8edea',
+                '#fbc2eb'
+            ];
+
+            // Destroy previous chart if exists
+            if (categoryChart) {
+                categoryChart.destroy();
+            }
+
+            // Create pie chart
+            const ctx = document.getElementById('categoryChart').getContext('2d');
+            categoryChart = new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        data: data,
+                        backgroundColor: colors,
+                        borderWidth: 2,
+                        borderColor: '#fff'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: true,
+                    plugins: {
+                        legend: {
+                            position: 'bottom',
+                            labels: {
+                                padding: 15,
+                                font: {
+                                    size: 12
+                                }
+                            }
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    const label = context.label || '';
+                                    const value = context.parsed || 0;
+                                    const percentage = ((value / totalSpending) * 100).toFixed(1);
+                                    return `${label}: Rp ${value.toLocaleString('id-ID')} (${percentage}%)`;
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+
+            console.log('Chart created');
+
+            // Render breakdown list with expandable subcategories
+            const breakdownDiv = document.getElementById('categoryBreakdown');
+            breakdownDiv.innerHTML = '';
+
+            sortedCategories.forEach(([category, data], index) => {
+                const percentage = ((data.total / totalSpending) * 100).toFixed(1);
+                const hasSubCategories = Object.keys(data.subCategories).length > 0;
+                const categoryId = `cat-${index}`;
+
+                console.log(`Rendering category: ${category}, hasSubCategories: ${hasSubCategories}, subCats:`, data.subCategories);
+
+                // Create main item
+                const itemDiv = document.createElement('div');
+                itemDiv.className = 'breakdown-item';
+
+                // Create header
+                const headerDiv = document.createElement('div');
+                headerDiv.className = 'breakdown-header';
+                if (hasSubCategories) {
+                    headerDiv.style.cursor = 'pointer';
+                    headerDiv.onclick = function() {
+                        toggleSubCategories(categoryId);
+                    };
+                }
+
+                // Create info section
+                const infoDiv = document.createElement('div');
+                infoDiv.className = 'breakdown-info';
+
+                const categoryDiv = document.createElement('div');
+                categoryDiv.className = 'breakdown-category';
+                categoryDiv.style.color = colors[index % colors.length];
+
+                if (hasSubCategories) {
+                    const iconSpan = document.createElement('span');
+                    iconSpan.className = 'expand-icon';
+                    iconSpan.id = `icon-${categoryId}`;
+                    iconSpan.textContent = '▶';
+                    categoryDiv.appendChild(iconSpan);
+                }
+
+                const nameSpan = document.createElement('span');
+                nameSpan.textContent = category;
+                categoryDiv.appendChild(nameSpan);
+
+                const percentDiv = document.createElement('div');
+                percentDiv.className = 'breakdown-percent';
+                percentDiv.textContent = `${percentage}% of total spending`;
+
+                const barDiv = document.createElement('div');
+                barDiv.className = 'breakdown-bar';
+                const fillDiv = document.createElement('div');
+                fillDiv.className = 'breakdown-fill';
+                fillDiv.style.width = `${percentage}%`;
+                fillDiv.style.background = colors[index % colors.length];
+                barDiv.appendChild(fillDiv);
+
+                infoDiv.appendChild(categoryDiv);
+                infoDiv.appendChild(percentDiv);
+                infoDiv.appendChild(barDiv);
+
+                const amountDiv = document.createElement('div');
+                amountDiv.className = 'breakdown-amount';
+                amountDiv.textContent = `Rp ${data.total.toLocaleString('id-ID')}`;
+
+                headerDiv.appendChild(infoDiv);
+                headerDiv.appendChild(amountDiv);
+                itemDiv.appendChild(headerDiv);
+
+                // Add subcategories if any
+                if (hasSubCategories) {
+                    const sortedSubs = Object.entries(data.subCategories)
+                        .sort((a, b) => b[1] - a[1]);
+                    
+                    const subListDiv = document.createElement('div');
+                    subListDiv.className = 'subcategory-list';
+                    subListDiv.id = `sub-${categoryId}`;
+
+                    sortedSubs.forEach(([subCat, amount]) => {
+                        const subPercentage = ((amount / data.total) * 100).toFixed(1);
+                        
+                        const subItemDiv = document.createElement('div');
+                        subItemDiv.className = 'subcategory-item';
+
+                        const subInfoDiv = document.createElement('div');
+                        const subNameDiv = document.createElement('div');
+                        subNameDiv.className = 'subcategory-name';
+                        subNameDiv.textContent = `↳ ${subCat}`;
+                        
+                        const subPercentDiv = document.createElement('div');
+                        subPercentDiv.className = 'breakdown-percent';
+                        subPercentDiv.style.marginTop = '3px';
+                        subPercentDiv.textContent = `${subPercentage}% of ${category}`;
+                        
+                        subInfoDiv.appendChild(subNameDiv);
+                        subInfoDiv.appendChild(subPercentDiv);
+
+                        const subAmountDiv = document.createElement('div');
+                        subAmountDiv.className = 'subcategory-amount';
+                        subAmountDiv.textContent = `Rp ${amount.toLocaleString('id-ID')}`;
+
+                        subItemDiv.appendChild(subInfoDiv);
+                        subItemDiv.appendChild(subAmountDiv);
+                        subListDiv.appendChild(subItemDiv);
+                    });
+
+                    itemDiv.appendChild(subListDiv);
+                }
+
+                breakdownDiv.appendChild(itemDiv);
+            });
+        }
+
+        function toggleSubCategories(categoryId) {
+            const subList = document.getElementById('sub-' + categoryId);
+            const icon = document.getElementById('icon-' + categoryId);
+            
+            console.log('Toggle called for:', categoryId);
+            console.log('SubList:', subList);
+            console.log('Icon:', icon);
+            
+            if (subList) {
+                const isExpanded = subList.classList.contains('expanded');
+                console.log('Is expanded:', isExpanded);
+                
+                if (isExpanded) {
+                    subList.classList.remove('expanded');
+                    if (icon) {
+                        icon.classList.remove('expanded');
+                    }
+                } else {
+                    subList.classList.add('expanded');
+                    if (icon) {
+                        icon.classList.add('expanded');
+                    }
+                }
+            }
+        }
+
+        function updateParentCategorySelect() {
+            const select = document.getElementById('parentCategorySelect');
+            const defaultCategories = ['Food', 'Transport', 'Shopping', 'Bills', 'Entertainment', 'Other'];
+            const allCategories = [...defaultCategories, ...customCategories];
+
+            select.innerHTML = '<option value="">Choose a category</option>';
+            allCategories.forEach(cat => {
+                const option = document.createElement('option');
+                option.value = cat;
+                option.textContent = cat;
+                select.appendChild(option);
+            });
+        }
+
+        function addSubCategory() {
+            const parentCat = document.getElementById('parentCategorySelect').value;
+            const subCatInput = document.getElementById('newSubCategoryInput');
+            const newSubCat = subCatInput.value.trim();
+
+            if (!parentCat) {
+                alert('Please select a category first');
+                return;
+            }
+
+            if (!newSubCat) {
+                alert('Please enter a sub category name');
+                return;
+            }
+
+            if (!subCategories[parentCat]) {
+                subCategories[parentCat] = [];
+            }
+
+            if (subCategories[parentCat].includes(newSubCat)) {
+                alert('This sub category already exists');
+                return;
+            }
+
+            subCategories[parentCat].push(newSubCat);
+            saveCategories();
+            updateCategoryDropdown();
+            renderSubCategories();
+            subCatInput.value = '';
+        }
+
+        function deleteSubCategory(parentCat, subCat) {
+            if (subCategories[parentCat]) {
+                subCategories[parentCat] = subCategories[parentCat].filter(s => s !== subCat);
+                if (subCategories[parentCat].length === 0) {
+                    delete subCategories[parentCat];
+                }
+                saveCategories();
+                updateCategoryDropdown();
+                renderSubCategories();
+            }
+        }
+
+        function renderSubCategories() {
+            const list = document.getElementById('subCategoryList');
+            list.innerHTML = '';
+
+            const defaultCategories = ['Food', 'Transport', 'Shopping', 'Bills', 'Entertainment', 'Other'];
+            const allCategories = [...defaultCategories, ...customCategories];
+
+            allCategories.forEach(cat => {
+                const subs = subCategories[cat] || [];
+                
+                if (subs.length > 0) {
+                    const title = document.createElement('h3');
+                    title.style.margin = '25px 0 15px';
+                    title.style.color = '#666';
+                    title.textContent = cat;
+                    list.appendChild(title);
+
+                    subs.forEach(sub => {
+                        const item = document.createElement('div');
+                        item.className = 'category-item';
+                        
+                        const nameDiv = document.createElement('div');
+                        nameDiv.className = 'category-name';
+                        nameDiv.textContent = sub;
+                        
+                        const deleteBtn = document.createElement('button');
+                        deleteBtn.className = 'delete-btn';
+                        deleteBtn.textContent = 'Delete';
+                        deleteBtn.onclick = function() {
+                            deleteSubCategory(cat, sub);
+                        };
+                        
+                        item.appendChild(nameDiv);
+                        item.appendChild(deleteBtn);
+                        list.appendChild(item);
+                    });
+                }
+            });
+
+            if (list.innerHTML === '') {
+                list.innerHTML = '<div class="empty-state">No sub categories yet. Add one above!</div>';
+            }
+        }
+
+        function addCategoryFromPage() {
+            const input = document.getElementById('newCategoryInput');
+            const newCategory = input.value.trim();
+            
+            if (!newCategory) {
+                alert('Please enter a category name');
+                return;
+            }
+
+            if (customCategories.includes(newCategory)) {
+                alert('This category already exists');
+                return;
+            }
+
+            const defaultCategories = ['Food', 'Transport', 'Shopping', 'Bills', 'Entertainment', 'Other'];
+            if (defaultCategories.includes(newCategory)) {
+                alert('This is a default category');
+                return;
+            }
+
+            customCategories.push(newCategory);
+            saveCategories();
+            updateCategoryDropdown();
+            renderCategories();
+            input.value = '';
+        }
+
+        function renderCategories() {
+            const list = document.getElementById('categoryList');
+            const defaultCategories = ['Food', 'Transport', 'Shopping', 'Bills', 'Entertainment', 'Other'];
+
+            list.innerHTML = '';
+
+            // Default categories section
+            const defaultTitle = document.createElement('h3');
+            defaultTitle.style.marginBottom = '15px';
+            defaultTitle.style.color = '#666';
+            defaultTitle.textContent = 'Default Categories';
+            list.appendChild(defaultTitle);
+            
+            defaultCategories.forEach(cat => {
+                const item = document.createElement('div');
+                item.className = 'category-item default';
+                item.innerHTML = `
+                    <div class="category-name">
+                        ${cat}
+                        <span class="default-label">(Default)</span>
+                    </div>
+                `;
+                list.appendChild(item);
+            });
+
+            // Custom categories section
+            if (customCategories.length > 0) {
+                const customTitle = document.createElement('h3');
+                customTitle.style.margin = '25px 0 15px';
+                customTitle.style.color = '#666';
+                customTitle.textContent = 'Custom Categories';
+                list.appendChild(customTitle);
+
+                customCategories.forEach(cat => {
+                    const item = document.createElement('div');
+                    item.className = 'category-item';
+                    
+                    const nameDiv = document.createElement('div');
+                    nameDiv.className = 'category-name';
+                    nameDiv.textContent = cat;
+                    
+                    const deleteBtn = document.createElement('button');
+                    deleteBtn.className = 'delete-btn';
+                    deleteBtn.textContent = 'Delete';
+                    deleteBtn.onclick = function() {
+                        openDeleteModal(cat);
+                    };
+                    
+                    item.appendChild(nameDiv);
+                    item.appendChild(deleteBtn);
+                    list.appendChild(item);
+                });
+            }
+        }
+
+        // Allow Enter key in category input
+        document.getElementById('newCategoryInput').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                addCategoryFromPage();
+            }
+        });
+
+        // Allow Enter key in sub category input
+        document.getElementById('newSubCategoryInput').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                addSubCategory();
+            }
+        });
+
+        function loadExpenses() {
+            if (window.storage) {
+                window.storage.get('expenses').then(result => {
+                    if (result && result.value) {
+                        expenses = JSON.parse(result.value);
+                        
+                        // Fix old expenses that might have combined category:subcategory format
+                        expenses = expenses.map(expense => {
+                            if (expense.category && expense.category.includes(':') && !expense.subCategory) {
+                                const parts = expense.category.split(':');
+                                return {
+                                    ...expense,
+                                    category: parts[0],
+                                    subCategory: parts.slice(1).join(':')
+                                };
+                            }
+                            return expense;
+                        });
+                        
+                        // Save the fixed expenses
+                        saveExpenses();
+                        renderExpenses();
+                    }
+                }).catch(err => {
+                    console.log('No previous expenses');
+                });
+            }
+        }
+
+        function loadCategories() {
+            if (window.storage) {
+                window.storage.get('category-data').then(result => {
+                    if (result && result.value) {
+                        const data = JSON.parse(result.value);
+                        customCategories = data.categories || [];
+                        subCategories = data.subCategories || {};
+                        updateCategoryDropdown();
+                    }
+                }).catch(err => {
+                    console.log('No category data');
+                });
+            }
+        }
+
+        function saveExpenses() {
+            if (window.storage) {
+                window.storage.set('expenses', JSON.stringify(expenses)).catch(err => {
+                    console.error('Save error:', err);
+                });
+            }
+        }
+
+        function saveCategories() {
+            if (window.storage) {
+                const categoryData = {
+                    categories: customCategories,
+                    subCategories: subCategories
+                };
+                window.storage.set('category-data', JSON.stringify(categoryData)).catch(err => {
+                    console.error('Save categories error:', err);
+                });
+            }
+        }
+
+        function updateCategoryDropdown() {
+            const select = document.getElementById('category');
+            
+            // Default categories
+            const defaultCategories = ['Food', 'Transport', 'Shopping', 'Bills', 'Entertainment', 'Other'];
+            
+            // Clear and rebuild
+            select.innerHTML = '';
+            
+            // Add default categories with their sub-categories
+            defaultCategories.forEach(cat => {
+                const option = document.createElement('option');
+                option.value = cat;
+                option.textContent = cat;
+                select.appendChild(option);
+
+                // Add sub-categories with indentation
+                const subs = subCategories[cat] || [];
+                subs.forEach(sub => {
+                    const subOption = document.createElement('option');
+                    subOption.value = `${cat}:${sub}`;
+                    subOption.textContent = `  ↳ ${sub}`;
+                    subOption.style.paddingLeft = '20px';
+                    select.appendChild(subOption);
+                });
+            });
+            
+            // Add custom categories with their sub-categories
+            customCategories.forEach(cat => {
+                const option = document.createElement('option');
+                option.value = cat;
+                option.textContent = cat;
+                select.appendChild(option);
+
+                // Add sub-categories with indentation
+                const subs = subCategories[cat] || [];
+                subs.forEach(sub => {
+                    const subOption = document.createElement('option');
+                    subOption.value = `${cat}:${sub}`;
+                    subOption.textContent = `  ↳ ${sub}`;
+                    subOption.style.paddingLeft = '20px';
+                    select.appendChild(subOption);
+                });
+            });
+            
+            // Add "Add New" option
+            const newOption = document.createElement('option');
+            newOption.value = '__new__';
+            newOption.textContent = '+ Add New Category';
+            select.appendChild(newOption);
+        }
+
+        function addExpense() {
+            const name = document.getElementById('name').value.trim();
+            const amountStr = document.getElementById('amount').value.replace(/\./g, '');
+            const amount = parseInt(amountStr);
+            const category = document.getElementById('category').value;
+            const date = document.getElementById('date').value;
+
+            if (!name || !amountStr || !date || isNaN(amount)) {
+                alert('Please fill in all fields');
+                return;
+            }
+
+            const expense = {
+                id: Date.now(),
+                name: name,
+                amount: amount,
+                category: category,
+                date: date
+            };
+
+            expenses.push(expense);
+            saveExpenses();
+            renderExpenses();
+            
+            // Clear form
+            document.getElementById('name').value = '';
+            document.getElementById('amount').value = '';
+            document.getElementById('date').value = today;
+        }
+
+        function deleteExpense(id) {
+            expenses = expenses.filter(exp => exp.id !== id);
+            saveExpenses();
+            renderExpenses();
+        }
+
+        function renderExpenses() {
+            const list = document.getElementById('expensesList');
+            
+            if (expenses.length === 0) {
+                list.innerHTML = '<div class="empty-state">No expenses yet. Add your first expense above!</div>';
+                document.getElementById('totalAmount').textContent = 'Rp 0';
+                return;
+            }
+
+            // Sort by date (newest first)
+            const sorted = [...expenses].sort((a, b) => new Date(b.date) - new Date(a.date));
+
+            list.innerHTML = sorted.map(expense => `
+                <div class="expense-item">
+                    <div class="expense-info">
+                        <div class="expense-name">
+                            ${expense.name}
+                            <span class="category-badge">${expense.category}${expense.subCategory ? ' > ' + expense.subCategory : ''}</span>
+                        </div>
+                        <div class="expense-details">${new Date(expense.date + 'T00:00:00').toLocaleDateString()}</div>
+                    </div>
+                    <div class="expense-amount">Rp ${expense.amount.toLocaleString('id-ID')}</div>
+                    <button class="delete-btn" onclick="deleteExpense(${expense.id})">Delete</button>
+                </div>
+            `).join('');
+
+            // Update total
+            const total = expenses.reduce((sum, exp) => sum + exp.amount, 0);
+            document.getElementById('totalAmount').textContent = `Rp ${total.toLocaleString('id-ID')}`;
+        }
+    </script>
+</body>
+</html>
