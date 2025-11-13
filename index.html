@@ -1361,55 +1361,19 @@
         });
 
         function loadExpenses() {
-            if (window.storage) {
-                window.storage.get('expenses').then(result => {
-                    if (result && result.value) {
-                        expenses = JSON.parse(result.value);
-                        
-                        // Fix old expenses that might have combined category:subcategory format
-                        expenses = expenses.map(expense => {
-                            if (expense.category && expense.category.includes(':') && !expense.subCategory) {
-                                const parts = expense.category.split(':');
-                                return {
-                                    ...expense,
-                                    category: parts[0],
-                                    subCategory: parts.slice(1).join(':')
-                                };
-                            }
-                            return expense;
-                        });
-                        
-                        // Save the fixed expenses
-                        saveExpenses();
-                        renderExpenses();
-                    }
-                }).catch(err => {
-                    console.log('No previous expenses');
-                });
-            }
+            // Skip browser storage, only load from Gist
+            console.log('Expenses will be loaded from GitHub Gist');
         }
 
         function loadCategories() {
-            if (window.storage) {
-                window.storage.get('category-data').then(result => {
-                    if (result && result.value) {
-                        const data = JSON.parse(result.value);
-                        customCategories = data.categories || [];
-                        subCategories = data.subCategories || {};
-                        updateCategoryDropdown();
-                    }
-                }).catch(err => {
-                    console.log('No category data');
-                });
-            }
+            // Skip browser storage, only load from Gist
+            console.log('Categories will be loaded from GitHub Gist');
         }
 
         function saveExpenses() {
-            if (window.storage) {
-                window.storage.set('expenses', JSON.stringify(expenses)).catch(err => {
-                    console.error('Save error:', err);
-                });
-            }
+            // Don't use window.storage anymore since we're using GitHub Gist
+            // This was causing conflicts
+            console.log('Saving expenses to memory only (Gist will sync)');
         }
 
         function saveCategories() {
