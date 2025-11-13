@@ -516,6 +516,7 @@
 
                 <div style="margin-top: 20px;">
                     <button type="button" class="add-btn" onclick="manualSync()" style="background: #43e97b;">Manual Sync Now</button>
+                    <button type="button" class="add-btn" onclick="fixAllExpenses()" style="background: #ffc107; margin-top: 10px;">Fix Expense Data Format</button>
                 </div>
 
                 <div style="margin-top: 30px; padding: 20px; background: #fff3cd; border-radius: 8px; border: 1px solid #ffc107;">
@@ -814,6 +815,38 @@
 
         async function manualSync() {
             await syncToGist();
+        }
+
+        async function fixAllExpenses() {
+            console.log('Fixing all expenses...');
+            console.log('Before fix:', JSON.stringify(expenses, null, 2));
+            
+            let fixedCount = 0;
+            expenses = expenses.map(expense => {
+                if (expense.category && expense.category.includes(':')) {
+                    const parts = expense.category.split(':');
+                    fixedCount++;
+                    console.log(`Fixing: "${expense.category}" -> category="${parts[0]}" subCategory="${parts.slice(1).join(':')}"`)
+                    return {
+                        ...expense,
+                        category: parts[0],
+                        subCategory: parts.slice(1).join(':')
+                    };
+                }
+                return expense;
+            });
+            
+            console.log('After fix:', JSON.stringify(expenses, null, 2));
+            console.log(`Fixed ${fixedCount} expenses`);
+            
+            if (fixedCount > 0) {
+                saveExpenses();
+                await syncToGist();
+                renderExpenses();
+                alert(`Fixed ${fixedCount} expense(s)! Check Analytics tab now.`);
+            } else {
+                alert('No expenses need fixing.');
+            }
         }
 
         // Try to load from gist on startup if configured
